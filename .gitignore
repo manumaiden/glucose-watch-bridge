@@ -1,0 +1,3 @@
+.env
+docker/ntfy/config/server.yml
+docker/ntfy/cache/

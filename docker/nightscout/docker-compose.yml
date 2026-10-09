@@ -1,0 +1,55 @@
+services:
+  mongo:
+    # Nightscout needs MongoDB. Pick the tag for your CPU:
+    #   - x86_64 WITH AVX           → any 4.4+ (e.g. mongo:4.4 or newer)
+    #   - x86_64 WITHOUT AVX        → mongo:4.4 (MongoDB 5.0+ requires AVX; many Celeron/Atom NAS CPUs lack it)
+    #   - ARM64 ARMv8.0 (Pi 4)      → mongo:4.4.18 (4.4.19+ requires ARMv8.2-A)
+    image: mongo:4.4
+    container_name: nightscout-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # Limit the WiredTiger cache to 256 MB — safe on low-RAM hosts
+    command: mongod --wiredTigerCacheSizeGB 0.25
+    networks:
+      - nightscout-net
+
+  nightscout:
+    image: nightscout/cgm-remote-monitor:latest
+    container_name: nightscout
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "1337:1337"
+    environment:
+      - MONGO_CONNECTION=mongodb://mongo/nightscout
+      - API_SECRET=${NIGHTSCOUT_API_SECRET}
+      - BASE_URL=${NIGHTSCOUT_BASE_URL}
+      - DISPLAY_UNITS=${DISPLAY_UNITS:-mmol/L}
+      - TIME_FORMAT=24
+      - THEME=colors
+      - NIGHT_MODE=off
+      - ENABLE=careportal rawbg iob cob bwp cage sage boluscalc food treatmentnotify
+      - SHOW_PLUGINS=careportal rawbg iob cob bwp cage
+      # Chart/alarm ranges shown in the Nightscout dashboard (in DISPLAY_UNITS)
+      - BG_HIGH=13.9
+      - BG_TARGET_TOP=7.8
+      - BG_TARGET_BOTTOM=4.0
+      - BG_LOW=3.9
+      - ALARM_HIGH=on
+      - ALARM_LOW=on
+      - ALARM_URGENT_HIGH=on
+      - ALARM_URGENT_LOW=on
+      # Required when BASE_URL is https (e.g. behind a reverse proxy/tunnel) but the
+      # container itself serves plain http. Accepts ONLY the string "true".
+      - INSECURE_USE_HTTP=true
+    networks:
+      - nightscout-net
+
+networks:
+  nightscout-net:
+    name: nightscout-net
+
+volumes:
+  mongo-data:

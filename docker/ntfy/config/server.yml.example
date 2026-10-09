@@ -1,0 +1,8 @@
+# Copy to server.yml and adjust base-url.
+# URL your phone uses to reach ntfy (public https URL if you want alerts outside home)
+base-url: "https://<NTFY_HOST>"
+cache-file: "/var/cache/ntfy/cache.db"
+auth-file: "/var/cache/ntfy/auth.db"
+# Nobody can read or publish without an account — glucose data stays private
+auth-default-access: "deny-all"
+listen-http: ":80"

@@ -1,0 +1,146 @@
+{
+  "name": "Glucose Watch Bridge — Error alert",
+  "nodes": [
+    {
+      "id": "16d21bc0-e21a-4b46-8553-30573b536b71",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "406008b5-5a49-4372-a332-fb7239933e61",
+      "name": "Throttle 1h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// At most one alert per hour while the failure persists (avoids a notification every 5 min)\nconst state = $getWorkflowStaticData('global');\nconst now = Date.now();\nconst exec = $json.execution || {};\nconst wf = $json.workflow || {};\n\nif (state.lastSent && now - state.lastSent < 60 * 60 * 1000) {\n  return [{ json: { shouldSend: false } }];\n}\nstate.lastSent = now;\n\nconst node = exec.lastNodeExecuted || '?';\nconst msg = (exec.error && exec.error.message) || 'unknown error';\nconst body = `${wf.name || 'workflow'} — node \"${node}\": ${msg}`;\n\nreturn [{ json: { shouldSend: true, title: '⚠️ Glucose pipeline DOWN', body } }];"
+      }
+    },
+    {
+      "id": "4290c40b-91c5-4702-b93b-b7e6018db0f4",
+      "name": "Should Send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "should-send",
+              "leftValue": "={{ $json.shouldSend }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "75ca498c-9081-40cf-90c0-f6719ca1a5e3",
+      "name": "ntfy Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://<NTFY_HOST>/<NTFY_TOPIC>",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "Priority",
+              "value": "high"
+            },
+            {
+              "name": "Tags",
+              "value": "warning"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ $json.body }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth"
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "ntfy"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Throttle 1h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Throttle 1h": {
+      "main": [
+        [
+          {
+            "node": "Should Send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send?": {
+      "main": [
+        [
+          {
+            "node": "ntfy Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

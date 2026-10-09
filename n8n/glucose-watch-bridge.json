@@ -1,0 +1,352 @@
+{
+  "name": "Glucose Watch Bridge — LibreLinkUp → Nightscout + ntfy",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "28985993-64fd-4a7c-9f72-83fa7e0d2354",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-eu.libreview.io/llu/auth/login",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "product",
+              "value": "llu.android"
+            },
+            {
+              "name": "version",
+              "value": "4.16.0"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-gb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": false,
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth"
+      },
+      "id": "542ca179-f2ea-410e-819c-10e0a7e49587",
+      "name": "LLU Login",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "LibreLinkUp login"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const loginData = $input.all()[0].json;\nconst d = loginData.data || {};\n\n// Login failed: throw an explicit error (it ends up in the ntfy alert of the error workflow)\nif (loginData.status !== 0 || !d.user || !d.authTicket) {\n  const reason = d.step\n    ? `action required \"${d.step.type}\" — open the LibreLinkUp app and accept (e.g. new terms of use)`\n    : d.redirect\n      ? `redirect to region \"${d.region}\" — use https://api-${d.region}.libreview.io in the LLU nodes`\n      : 'unexpected response';\n  throw new Error(`LibreLinkUp login failed (status ${loginData.status}): ${reason}`);\n}\n\nconst userId = d.user.id;\nconst token = d.authTicket.token;\n\n// account-id header = SHA256(user.id). The n8n task runner sandbox blocks the\n// crypto module, so the hash is precomputed once and pasted here:\n//   echo -n \"<your LibreLinkUp user.id>\" | sha256sum\nconst accountId = '<SHA256_OF_YOUR_LIBRELINKUP_USER_ID>';\n\nif (accountId.startsWith('<')) {\n  throw new Error(`account-id not configured. Your user.id is ${userId} — run: echo -n \"${userId}\" | sha256sum and paste the result in this node`);\n}\n\nreturn [{ json: { token, accountId, userId } }];"
+      },
+      "id": "5e9dd1f7-489d-406d-a751-88b8e0eceb76",
+      "name": "Compute account-id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api-eu.libreview.io/llu/connections",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.token }}"
+            },
+            {
+              "name": "account-id",
+              "value": "={{ $json.accountId }}"
+            },
+            {
+              "name": "product",
+              "value": "llu.android"
+            },
+            {
+              "name": "version",
+              "value": "4.16.0"
+            },
+            {
+              "name": "accept-language",
+              "value": "en-gb"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc2e4125-7768-48f0-8828-b9bcfd7eb7fb",
+      "name": "LLU Get Connections",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.all()[0].json;\nconst connections = data.data;\n\nif (!connections || connections.length === 0) {\n  throw new Error('No LibreLinkUp connection found (is this a follower account with an accepted invitation?)');\n}\n\nconst gm = connections[0].glucoseMeasurement;\n\nif (!gm) {\n  throw new Error('No glucose measurement available');\n}\n\nconst trendMap = {\n  1: 'DoubleUp',\n  2: 'SingleUp',\n  3: 'FortyFiveUp',\n  4: 'Flat',\n  5: 'FortyFiveDown',\n  6: 'SingleDown',\n  7: 'DoubleDown'\n};\n\nconst now = Date.now();\n\nconst entry = {\n  type: 'sgv',\n  sgv: Math.round(gm.ValueInMgPerDl),\n  date: now,\n  dateString: new Date(now).toISOString(),\n  direction: trendMap[gm.TrendArrow] || 'Flat',\n  device: 'LibreLinkUp'\n};\n\nreturn [{ json: { entry, sgv: gm.ValueInMgPerDl, mmol: gm.Value, trend: gm.TrendArrow, isHigh: gm.isHigh, isLow: gm.isLow } }];"
+      },
+      "id": "aa662b53-0b52-4a9a-ac30-27927d22948c",
+      "name": "Transform to Nightscout format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://<NIGHTSCOUT_HOST>:1337/api/v1/entries",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [$json.entry] }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "ba330991-1d86-4790-abe1-6d337c875301",
+      "name": "POST to Nightscout",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Nightscout API secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Alert thresholds ─────────────────────────────────────────────\n// Values in mmol/L (mg/dL = mmol/L × 18). Set a threshold to null to disable it.\nconst LOW_MMOL = 3.9;          // below → urgent \"LOW\" alert      (≈ 70 mg/dL)\nconst HIGH_MMOL = 10.0;        // above → urgent \"HIGH\" alert     (≈ 180 mg/dL)\nconst USE_LIBRE_FLAGS = true;  // also alert when LibreLinkUp itself flags isHigh/isLow\nconst NORMAL_EVERY_MIN = 15;   // silent \"normal\" notification every N minutes (multiple of 5)\n// ─────────────────────────────────────────────────────────────────\n\nconst sgv = $json.sgv;\nconst mmol = $json.mmol;\nconst trend = $json.trend;\n\nconst trendArrow = { 1:'⬆⬆', 2:'⬆', 3:'↗', 4:'→', 5:'↘', 6:'⬇', 7:'⬇⬇' }[trend] || '→';\n\nconst isLow = (LOW_MMOL !== null && mmol < LOW_MMOL) || (USE_LIBRE_FLAGS && $json.isLow === true);\nconst isHigh = !isLow && ((HIGH_MMOL !== null && mmol > HIGH_MMOL) || (USE_LIBRE_FLAGS && $json.isHigh === true));\nconst isCritical = isLow || isHigh;\n\n// The workflow runs every 5 min: send a normal reading only once per window\nconst shouldNotifyNormal = new Date().getMinutes() % NORMAL_EVERY_MIN < 5;\n\nif (!isCritical && !shouldNotifyNormal) {\n  return [{ json: { shouldSend: false } }];\n}\n\nconst priority = isCritical ? 'urgent' : 'default';\nconst title = isLow ? '🔴 LOW GLUCOSE' : (isHigh ? '🟡 HIGH GLUCOSE' : '🩸 Glucose');\nconst tags = isCritical ? 'rotating_light,drop_of_blood' : 'drop_of_blood';\nconst body = mmol + ' mmol/L (' + Math.round(sgv) + ' mg/dL) ' + trendArrow;\n\nreturn [{ json: { shouldSend: true, priority, title, tags, body } }];"
+      },
+      "id": "43bcce1a-c1b5-4805-88c2-635cca6cde61",
+      "name": "Prepare ntfy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "should-send",
+              "leftValue": "={{ $json.shouldSend }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6ac2eaa5-3041-4027-b64d-ca2405a4ae45",
+      "name": "Should Send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://<NTFY_HOST>/<NTFY_TOPIC>",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "Priority",
+              "value": "={{ $json.priority }}"
+            },
+            {
+              "name": "Tags",
+              "value": "={{ $json.tags }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ $json.body }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth"
+      },
+      "id": "c4ee9674-004b-471c-b384-218fd2ee92a0",
+      "name": "ntfy Send",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        96
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "ntfy"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "LLU Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLU Login": {
+      "main": [
+        [
+          {
+            "node": "Compute account-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute account-id": {
+      "main": [
+        [
+          {
+            "node": "LLU Get Connections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLU Get Connections": {
+      "main": [
+        [
+          {
+            "node": "Transform to Nightscout format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to Nightscout format": {
+      "main": [
+        [
+          {
+            "node": "POST to Nightscout",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare ntfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare ntfy": {
+      "main": [
+        [
+          {
+            "node": "Should Send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send?": {
+      "main": [
+        [
+          {
+            "node": "ntfy Send",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
