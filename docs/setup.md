@@ -14,9 +14,11 @@ Placeholders used below:
 
 | Placeholder | Example |
 |---|---|
-| `<NTFY_HOST>` | `ntfy.example.com` or `192.168.1.10:8082` |
+| `<NTFY_HOST>` | `ntfy.example.com` |
 | `<NTFY_TOPIC>` | `glucose` (anything hard to guess is fine) |
-| `<NIGHTSCOUT_HOST>` | `192.168.1.10` |
+| `<NIGHTSCOUT_HOST>` | `nightscout.example.com` |
+
+> 🔒 **Use HTTPS.** The workflows send the Nightscout API secret and the ntfy password with every request. The default URLs are `https://`. Use plain `http://<LAN-IP>:<port>` **only** when n8n, Nightscout and ntfy talk over a trusted local network or VPN and never cross the internet.
 
 ---
 
@@ -43,7 +45,7 @@ docker exec ntfy ntfy access <NTFY_USER> <NTFY_TOPIC> rw
 With `auth-default-access: deny-all`, anonymous requests get `403`. Quick test:
 
 ```bash
-curl -u <NTFY_USER>:<password> -d "test" http://<NTFY_HOST>/<NTFY_TOPIC>
+curl -u <NTFY_USER>:<password> -d "test" https://<NTFY_HOST>/<NTFY_TOPIC>
 ```
 
 To receive alerts away from home, expose ntfy over HTTPS (reverse proxy, tunnel or VPN, see [requirements](requirements.md#network)).
@@ -57,7 +59,7 @@ cp .env.example .env        # set NIGHTSCOUT_API_SECRET and NIGHTSCOUT_BASE_URL
 docker compose up -d
 ```
 
-Open `http://<NIGHTSCOUT_HOST>:1337` and complete the first-run profile. n8n authenticates with the **SHA1** of the API secret:
+Open Nightscout in the browser and complete the first-run profile. With `AUTH_DEFAULT_ROLES=denied` (the default in this compose file) nothing is readable without authentication: log in with the API secret, or create a read-only token in *Admin tools* → *Subjects*. n8n authenticates with the **SHA1** of the API secret:
 
 ```bash
 echo -n "<your NIGHTSCOUT_API_SECRET>" | sha1sum
@@ -128,6 +130,6 @@ Disable battery optimization for xDrip+ too.
 | `⚠️ Glucose pipeline DOWN` alert | The message names the failing node and the reason. Most common: *action required "tou"*, so open LibreLinkUp and accept the new terms |
 | Entries in Nightscout but no notification | Check the ntfy credential and URL. Then check battery optimization and that the topic is subscribed on the phone |
 | Notification on the phone but not on the watch | Enable notifications for the ntfy app in the watch companion app |
-| `401` from Nightscout | The Header Auth credential must contain the **SHA1** of the API secret, not the secret itself |
+| `401` from Nightscout | The Header Auth credential must contain the **SHA1** of the API secret, not the secret itself. Unauthenticated requests get `401` by design (`AUTH_DEFAULT_ROLES=denied`) |
 
 More known issues are listed in the [README](../README.md#lessons-learned-gotchas).

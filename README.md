@@ -35,7 +35,7 @@ Everything except LibreLinkUp itself runs on your own hardware (a NAS, a Raspber
 | Routine updates | A **silent** notification every 15 minutes with the value and trend, e.g. `6.9 mmol/L (125 mg/dL) ↗` |
 | Alerts | **Urgent** notifications (they vibrate the watch) as soon as a reading is out of range. The thresholds are configurable, see [thresholds](docs/thresholds.md) |
 | Self-monitoring | A second workflow sends **"⚠️ Glucose pipeline DOWN"** if the pipeline fails, at most once per hour, with the reason (e.g. *new terms of use must be accepted*) |
-| Privacy | ntfy runs with `deny-all`: nobody can read or publish to your topic without an account |
+| Privacy | ntfy runs with `deny-all` and Nightscout with `AUTH_DEFAULT_ROLES=denied`: without credentials nobody can read your glucose data or publish to your topic. All URLs default to HTTPS |
 | Optional | **xDrip+** in *Nightscout Follower* mode for charts on the phone |
 
 ## Architecture
@@ -108,6 +108,7 @@ The full walkthrough is in **[docs/setup.md](docs/setup.md)**.
 | ntfy receives a JSON blob instead of text | In the n8n HTTP Request node use `contentType: raw` + `text/plain`, not "string" body |
 | Nightscout won't start behind a reverse proxy | `INSECURE_USE_HTTP=true` (exactly the string `"true"`) when `BASE_URL` is https but the container serves http |
 | MongoDB crashes with "Illegal instruction" | Your CPU lacks AVX (MongoDB 5.0+) or ARMv8.2 (4.4.19+). See the tags in the compose file |
+| Nightscout data readable by anyone who knows the URL | Nightscout's default role is `readable`. Set `AUTH_DEFAULT_ROLES=denied` (already in the compose file) |
 | Notifications stop when the phone is idle | Disable battery optimization for the ntfy app (and xDrip+), and allow autostart on MIUI/HyperOS |
 
 ## License

@@ -39,4 +39,4 @@ No other cloud account is required.
 ## Network
 
 - **At home only:** the phone reaches ntfy on the LAN. No exposure is needed, but you only get alerts when you are connected to the home Wi-Fi.
-- **Everywhere (recommended):** expose **ntfy** (and optionally Nightscout) over **HTTPS**, using a reverse proxy with a TLS certificate, a tunnel (e.g. Cloudflare Tunnel) or a VPN (WireGuard, Tailscale). Keep `auth-default-access: deny-all` on ntfy.
+- **Everywhere (recommended):** expose **ntfy** (and optionally Nightscout) over **HTTPS**, using a reverse proxy with a TLS certificate, a tunnel (e.g. Cloudflare Tunnel) or a VPN (WireGuard, Tailscale). Keep `auth-default-access: deny-all` on ntfy and `AUTH_DEFAULT_ROLES=denied` on Nightscout. Credentials travel with every request, so never expose plain `http://` endpoints to the internet.

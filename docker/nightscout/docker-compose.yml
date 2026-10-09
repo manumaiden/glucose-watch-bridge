@@ -44,6 +44,10 @@ services:
       # Required when BASE_URL is https (e.g. behind a reverse proxy/tunnel) but the
       # container itself serves plain http. Accepts ONLY the string "true".
       - INSECURE_USE_HTTP=true
+      # Glucose data is health data: by default Nightscout lets ANYONE read it
+      # (AUTH_DEFAULT_ROLES=readable). "denied" requires the API secret or a token
+      # for every request, including the web dashboard.
+      - AUTH_DEFAULT_ROLES=denied
     networks:
       - nightscout-net
 
