@@ -31,7 +31,8 @@ Everything except LibreLinkUp itself runs on your own hardware (a NAS, a Raspber
 | Feature | Details |
 |---|---|
 | Polling | LibreLinkUp is polled every 5 minutes by an **n8n** workflow |
-| Storage | Every reading is written to **Nightscout** (`/api/v1/entries`), so the history and charts are yours |
+| Storage | Every reading is written to **Nightscout** (`/api/v1/entries`) with its real measurement time, so the history and charts are yours |
+| Stale data guard | LibreLinkUp keeps returning the last reading when the phone or sensor stops syncing. Readings older than 15 minutes are **never** shown as current: nothing is written and you get a pipeline alert instead |
 | Routine updates | A **silent** notification every 15 minutes with the value and trend, e.g. `6.9 mmol/L (125 mg/dL) ↗` |
 | Alerts | **Urgent** notifications (they vibrate the watch) as soon as a reading is out of range. The thresholds are configurable, see [thresholds](docs/thresholds.md) |
 | Self-monitoring | A second workflow sends **"⚠️ Glucose pipeline DOWN"** if the pipeline fails, at most once per hour, with the reason (e.g. *new terms of use must be accepted*) |

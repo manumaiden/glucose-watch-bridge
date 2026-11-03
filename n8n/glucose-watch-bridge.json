@@ -123,7 +123,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.all()[0].json;\nconst connections = data.data;\n\nif (!connections || connections.length === 0) {\n  throw new Error('No LibreLinkUp connection found (is this a follower account with an accepted invitation?)');\n}\n\nconst gm = connections[0].glucoseMeasurement;\n\nif (!gm) {\n  throw new Error('No glucose measurement available');\n}\n\nconst trendMap = {\n  1: 'DoubleUp',\n  2: 'SingleUp',\n  3: 'FortyFiveUp',\n  4: 'Flat',\n  5: 'FortyFiveDown',\n  6: 'SingleDown',\n  7: 'DoubleDown'\n};\n\nconst now = Date.now();\n\nconst entry = {\n  type: 'sgv',\n  sgv: Math.round(gm.ValueInMgPerDl),\n  date: now,\n  dateString: new Date(now).toISOString(),\n  direction: trendMap[gm.TrendArrow] || 'Flat',\n  device: 'LibreLinkUp'\n};\n\nreturn [{ json: { entry, sgv: gm.ValueInMgPerDl, mmol: gm.Value, trend: gm.TrendArrow, isHigh: gm.isHigh, isLow: gm.isLow } }];"
+        "jsCode": "const data = $input.all()[0].json;\nconst connections = data.data;\n\nif (!connections || connections.length === 0) {\n  throw new Error('No LibreLinkUp connection found (is this a follower account with an accepted invitation?)');\n}\n\nconst gm = connections[0].glucoseMeasurement;\n\nif (!gm) {\n  throw new Error('No glucose measurement available');\n}\n\nconst trendMap = {\n  1: 'DoubleUp',\n  2: 'SingleUp',\n  3: 'FortyFiveUp',\n  4: 'Flat',\n  5: 'FortyFiveDown',\n  6: 'SingleDown',\n  7: 'DoubleDown'\n};\n\n// Maximum age of a reading before it is treated as stale (minutes).\n// LibreLinkUp keeps returning the last measurement even when the phone or\n// sensor has stopped syncing: it must never be published as a current value.\nconst MAX_AGE_MIN = 15;\n\n// FactoryTimestamp is the measurement time in UTC (\"M/D/YYYY h:mm:ss AM/PM\").\nconst now = new Date(gm.FactoryTimestamp + ' UTC').getTime();\nif (isNaN(now)) {\n  throw new Error('Unreadable LibreLinkUp timestamp: ' + gm.FactoryTimestamp);\n}\nconst ageMin = Math.round((Date.now() - now) / 60000);\nif (ageMin > MAX_AGE_MIN) {\n  throw new Error(`Stale glucose data: last reading ${ageMin} min ago (phone or sensor not syncing)`);\n}\n\nconst entry = {\n  type: 'sgv',\n  sgv: Math.round(gm.ValueInMgPerDl),\n  date: now,\n  dateString: new Date(now).toISOString(),\n  direction: trendMap[gm.TrendArrow] || 'Flat',\n  device: 'LibreLinkUp'\n};\n\nreturn [{ json: { entry, sgv: gm.ValueInMgPerDl, mmol: gm.Value, trend: gm.TrendArrow, isHigh: gm.isHigh, isLow: gm.isLow } }];"
       },
       "id": "aa662b53-0b52-4a9a-ac30-27927d22948c",
       "name": "Transform to Nightscout format",
@@ -219,13 +219,18 @@
       "parameters": {
         "method": "POST",
         "url": "https://<NTFY_HOST>/<NTFY_TOPIC>",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Title",
-              "value": "={{ $json.title }}"
-            },
             {
               "name": "Priority",
               "value": "={{ $json.priority }}"

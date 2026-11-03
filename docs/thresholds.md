@@ -42,6 +42,16 @@ So for `LOW < 70 mg/dL` and `HIGH > 250 mg/dL`, use `LOW_MMOL = 3.9` and `HIGH_M
 
 If you only want to rely on the patient's app alarms, set both thresholds to `null` and keep `USE_LIBRE_FLAGS = true`.
 
+## Stale readings
+
+The `Transform to Nightscout format` node has one more setting:
+
+```js
+const MAX_AGE_MIN = 15;  // older readings are rejected instead of shown as current
+```
+
+LibreLinkUp keeps returning the last measurement when the phone or the sensor stops syncing. Each entry uses the real measurement time (`FactoryTimestamp`), and a reading older than `MAX_AGE_MIN` stops the run: nothing is written to Nightscout, no routine notification is sent, and the error workflow sends the pipeline alert (at most once per hour).
+
 ## Nightscout ranges are separate
 
 `BG_LOW`, `BG_TARGET_BOTTOM`, `BG_TARGET_TOP` and `BG_HIGH` in `docker/nightscout/docker-compose.yml` only affect the **Nightscout dashboard** (chart colours and its own browser alarms). They do **not** change the ntfy notifications. Keep them consistent with your thresholds to avoid confusion.

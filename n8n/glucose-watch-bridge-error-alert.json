@@ -70,13 +70,18 @@
       "parameters": {
         "method": "POST",
         "url": "https://<NTFY_HOST>/<NTFY_TOPIC>",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            }
+          ]
+        },
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Title",
-              "value": "={{ $json.title }}"
-            },
             {
               "name": "Priority",
               "value": "high"

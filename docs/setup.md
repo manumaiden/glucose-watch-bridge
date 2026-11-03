@@ -128,6 +128,7 @@ Disable battery optimization for xDrip+ too.
 |---|---|
 | No notifications at all | Is there a recent entry in Nightscout (`/api/v1/entries.json?count=1`)? If not, the problem is in n8n: open the failed executions |
 | `⚠️ Glucose pipeline DOWN` alert | The message names the failing node and the reason. Most common: *action required "tou"*, so open LibreLinkUp and accept the new terms |
+| `Stale glucose data: last reading N min ago` | n8n works, but LibreLinkUp has no fresh reading: the phone or the sensor is not syncing. Nothing is written to Nightscout until a fresh reading arrives |
 | Entries in Nightscout but no notification | Check the ntfy credential and URL. Then check battery optimization and that the topic is subscribed on the phone |
 | Notification on the phone but not on the watch | Enable notifications for the ntfy app in the watch companion app |
 | `401` from Nightscout | The Header Auth credential must contain the **SHA1** of the API secret, not the secret itself. Unauthenticated requests get `401` by design (`AUTH_DEFAULT_ROLES=denied`) |
