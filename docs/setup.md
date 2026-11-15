@@ -87,7 +87,7 @@ In n8n → *Credentials* → *Add credential*:
 
 | Node | Field | Replace |
 |---|---|---|
-| `POST to Nightscout` | URL | `<NIGHTSCOUT_HOST>` |
+| `POST to Nightscout`, `POST Sensor Start` | URL | `<NIGHTSCOUT_HOST>` |
 | `ntfy Send` (main) and `ntfy Alert` (error workflow) | URL | `<NTFY_HOST>` and `<NTFY_TOPIC>` |
 | `LLU Login`, `LLU Get Connections` | URL | only if you are not in the EU: `api-eu` → your region (`api-us`, `api-de`, `api-fr`, `api-au`, …). The login error tells you the right one |
 | `Compute account-id` | `accountId` | see below |

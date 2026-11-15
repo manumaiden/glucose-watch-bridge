@@ -32,6 +32,7 @@ Everything except LibreLinkUp itself runs on your own hardware (a NAS, a Raspber
 |---|---|
 | Polling | LibreLinkUp is polled every 5 minutes by an **n8n** workflow |
 | Storage | Every reading is written to **Nightscout** (`/api/v1/entries`) with its real measurement time, so the history and charts are yours |
+| Sensor age | The sensor activation time reported by LibreLinkUp is written to Nightscout as a single *Sensor Start* treatment per sensor, so Nightscout's `sage` pill shows how old the sensor is |
 | Stale data guard | LibreLinkUp keeps returning the last reading when the phone or sensor stops syncing. Readings older than 15 minutes are **never** shown as current: nothing is written and you get a pipeline alert instead |
 | Routine updates | A **silent** notification every 15 minutes with the value and trend, e.g. `6.9 mmol/L (125 mg/dL) ↗` |
 | Alerts | **Urgent** notifications (they vibrate the watch) as soon as a reading is out of range. The thresholds are configurable, see [thresholds](docs/thresholds.md) |
